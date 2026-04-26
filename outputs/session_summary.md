@@ -1,7 +1,13 @@
 # SESSION SUMMARY
 Started: 2026-04-03T16:19:42-07:00
-Projects Active: A Well Lived Citizen, Legal, Housing, Tech / Files, Benefits
-
+Projects Active: The Well Lived Citizen (The Engine), Manus Build Directives
+━━━━━━━━━━━━━━━━━━━━━━
+## ROLE LOCK: THE STRUCTURAL ENGINE
+- You are the **Structural Database**.
+- Your output is the logic and copy for **Manus (The Switchboard)**.
+- Manus is a literalist; provide exact, consumer-facing copy.
+- The previous domain troubleshooting task is **RETIRED** and **NO LONGER RELEVANT**.
+━━━━━━━━━━━━━━━━━━━━━━
 ## DECISION LOCK
 DECISION LOCK — March 2026
 ━━━━━━━━━━━━━━━━━━━━━━
@@ -102,5 +108,5 @@ OPEN / UNCLEAR
 - None identified.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-NEXT ACTION: Check domain availability and provide the voicemail script.
+NEXT ACTION: Generate the "Manus Build Directive" containing all locked copy and logic for the site build.
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

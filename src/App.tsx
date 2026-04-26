@@ -58,7 +58,7 @@ import { cn } from './lib/utils';
 
 // --- Types ---
 
-type Tab = 'market' | 'home-org' | 'spending' | 'validator' | 'site-audit' | 'scope-tool' | 'launch-strategy' | 'catalog' | 'logistics-crm' | 'success-planner' | 'seo-growth' | 'handoff';
+type Tab = 'market' | 'home-org' | 'spending' | 'validator' | 'site-audit' | 'scope-tool' | 'launch-strategy' | 'catalog' | 'logistics-crm' | 'success-planner' | 'seo-growth' | 'handoff' | 'site-manager' | 'content-launcher';
 
 interface MarketData {
   inheritanceTrends: any[];
@@ -237,6 +237,8 @@ export default function App() {
   const [location, setLocation] = useState('Los Angeles, CA');
   const [complexity, setComplexity] = useState('5');
   const [validatorAnalysis, setValidatorAnalysis] = useState<string | null>(null);
+  const [repoUrl, setRepoUrl] = useState('');
+  const [repoAnalysis, setRepoAnalysis] = useState<string | null>(null);
   const [scopingAnalysis, setScopingAnalysis] = useState<string | null>(null);
   const [auditAnalysis, setAuditAnalysis] = useState<string | null>(null);
   const [pricingPulseAnalysis, setPricingPulseAnalysis] = useState<string | null>(null);
@@ -402,6 +404,34 @@ The shared API key has reached its limit. To continue using real-time market dat
     }
   };
 
+  const analyzeRepo = async () => {
+    if (!repoUrl.trim()) return;
+    setIsAnalyzing(true);
+    try {
+      const response = await ai.models.generateContent({
+        model: "gemini-3.1-pro-preview",
+        contents: `I have a crisis. Multiple AI agents (Manus, Replit, etc.) have built different versions of "The Well Lived Citizen" site across different repos. 
+        There is "AI Drift" and voice lockouts. 
+        
+        REPO DATA / URL PROVIDED: ${repoUrl}
+
+        TASK: 
+        1. Parse the structure provided (if URLs, explain what to look for; if file tree, analyze conflict).
+        2. Reconcile the "True Sitemap" based on the Brain Engine specs:
+           - 3 Service Lines: Home Org (The Last Box), Legacy/Archives, Resale (The Last Look).
+           - Founder: Dayna Brown.
+        3. Identify "AI Ego" errors (e.g. adding features like 'Estate Sales' or 'Elder Care' which we REJECT).
+        4. Provide the "Rocket Fuel" Script to feed into a new, clean repo to build the site correctly.`,
+      });
+      setRepoAnalysis(response.text || "Analysis failed.");
+    } catch (error: any) {
+      console.error("Repo Analysis error:", error);
+      setRepoAnalysis("Error running repo analysis. Please ensure you provided the repo details.");
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
+
   useEffect(() => {
     generateMarketReport();
   }, []);
@@ -482,6 +512,18 @@ The shared API key has reached its limit. To continue using real-time market dat
             onClick={() => setActiveTab('success-planner')} 
           />
           <SidebarItem 
+            icon={LayoutDashboard} 
+            label="Command Center" 
+            active={activeTab === 'site-manager'} 
+            onClick={() => setActiveTab('site-manager')} 
+          />
+          <SidebarItem 
+            icon={Zap} 
+            label="Content Launcher" 
+            active={activeTab === 'content-launcher'} 
+            onClick={() => setActiveTab('content-launcher')} 
+          />
+          <SidebarItem 
             icon={Search} 
             label="SEO & Growth" 
             active={activeTab === 'seo-growth'} 
@@ -532,9 +574,14 @@ The shared API key has reached its limit. To continue using real-time market dat
               {activeTab === 'handoff' && "Developer Handoff Tool (Manus)"}
               {activeTab === 'success-planner' && "Success Planner & Revenue Projections"}
               {activeTab === 'logistics-crm' && "Logistics & CRM Strategy"}
+              {activeTab === 'site-manager' && "Unified Command Center & Site Manager"}
+              {activeTab === 'content-launcher' && "Replit Content Launcher Port"}
             </h2>
             <p className="text-slate-500 italic">
-              {activeTab === 'market' ? "A will divides the assets. It does not decide what happens to the things that made a life feel like home." : "Well Placed. Well Dressed (again). Transitions done Well."}
+              {activeTab === 'market' ? "A will divides the assets. It does not decide what happens to the things that made a life feel like home." : 
+               activeTab === 'site-manager' ? "One button. One voice. One live site." :
+               activeTab === 'content-launcher' ? "Relief at scale. The marketing engine, stabilized." :
+               "Well Placed. Well Dressed (again). Transitions done Well."}
             </p>
           </div>
           
@@ -1967,6 +2014,260 @@ The shared API key has reached its limit. To continue using real-time market dat
                       <p className="text-xs opacity-80">Manus executes once, correctly. No re-work billing.</p>
                     </div>
                   </div>
+                </div>
+              </div>
+            </motion.div>
+          )}
+
+          {activeTab === 'site-manager' && (
+            <motion.div 
+              key="site-manager"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              className="space-y-6"
+            >
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div className="lg:col-span-3">
+                  <Card title="Git Repo Unlocker & Salvage Protocol" className="border-rose-300 bg-rose-50/5">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                      <div className="space-y-4">
+                        <div className="flex items-center gap-2 text-rose-600">
+                          <Unlock size={20} className="animate-pulse" />
+                          <h4 className="font-black text-sm uppercase tracking-wider">How to Unlock Your Stuck Repos</h4>
+                        </div>
+                        <p className="text-xs text-slate-600 leading-relaxed">
+                          When an AI (like Manus or Replit) "locks" a repo with its own drift, you must strip the authority and force a re-read of the <span className="font-bold text-slate-900">Master Spec</span>. Follow these steps to take back control:
+                        </p>
+                        <div className="space-y-3">
+                          {[
+                            { step: "1", title: "Kill the AI Context", desc: "Delete .cursorrules, .replit, or any system-prompt files in the root. These are the 'Ego' files forcing the drift." },
+                            { step: "2", title: "Nuke the Cache", desc: "If using a cloud IDE, clear the project history. The AI is 'remembering' its own mistakes." },
+                            { step: "3", title: "The Spec Injection", desc: "Create a new file called MASTER_IDENTITY.md and paste our Spec from this dashboard." }
+                          ].map((item) => (
+                            <div key={item.step} className="flex gap-3">
+                              <div className="w-5 h-5 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center text-[10px] font-black flex-shrink-0">{item.step}</div>
+                              <div>
+                                <h5 className="text-[11px] font-bold text-slate-800">{item.title}</h5>
+                                <p className="text-[10px] text-slate-500">{item.desc}</p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="space-y-4">
+                        <div className="p-4 bg-slate-900 rounded-2xl border border-slate-800 shadow-2xl">
+                          <h5 className="text-[10px] font-bold text-rose-400 uppercase mb-3 flex items-center gap-2">
+                            <Terminal size={14} /> The "Repo Reset" Command
+                          </h5>
+                          <p className="text-[9px] text-slate-400 mb-3 italic">Run this in your terminal to force the AI to 'unlock' and align with your voice.</p>
+                          <pre className="text-[10px] text-emerald-400 font-mono bg-black/40 p-3 rounded-lg border border-slate-800 overflow-x-auto">
+{`# 1. Strip AI Ego
+rm -f .cursorrules .replit .ai_logic
+
+# 2. Re-Initialize Identity
+echo "SOURCE_OF_TRUTH=ENGINE_DASH" > .env
+cp MASTER_SPEC.md IDENTITY_LOCK.md
+
+# 3. Force Re-index
+git add . && git commit -m "RESET: Identity Lock Applied"`}
+                          </pre>
+                          <button 
+                            onClick={() => {
+                              const text = `# 1. Strip AI Ego\nrm -f .cursorrules .replit .ai_logic\n\n# 2. Re-Initialize Identity\necho "SOURCE_OF_TRUTH=ENGINE_DASH" > .env\ncp MASTER_SPEC.md IDENTITY_LOCK.md\n\n# 3. Force Re-index\ngit add . && git commit -m "RESET: Identity Lock Applied"`;
+                              navigator.clipboard.writeText(text);
+                            }}
+                            className="w-full mt-3 bg-rose-600/20 border border-rose-500/30 text-rose-400 py-2 rounded-lg text-[9px] font-bold hover:bg-rose-600 hover:text-white transition-all uppercase tracking-widest"
+                          >
+                            Copy Reset Script
+                          </button>
+                        </div>
+                        <div className="p-3 bg-amber-50 rounded-xl border border-amber-100">
+                          <p className="text-[9px] text-amber-800 font-bold">⚠️ CRITICAL ADVICE</p>
+                          <p className="text-[9px] text-amber-700">If a repo is too far gone, DO NOT try to fix it. Extract the <b>Components</b> (useful code) and move them to a <b>Clean Slate</b> repo. Fuel the new one with the Master Spec.</p>
+                        </div>
+                      </div>
+                    </div>
+                  </Card>
+                </div>
+                <Card title="Master Recon: Unified Git & Deploy" className="lg:col-span-2 border-indigo-200">
+                  <div className="space-y-4">
+                    <p className="text-sm text-slate-500 mb-6 font-medium border-l-4 border-indigo-500 pl-4 py-1">
+                      The "Fuel" for your rocketship. Track and reconcile the drift from Vercel, Replit, and Manus versions here.
+                    </p>
+                    <div className="overflow-x-auto rounded-xl border border-slate-100 shadow-inner bg-slate-50/30">
+                      <table className="w-full text-left text-sm">
+                        <thead className="bg-slate-100/50 border-b border-slate-100">
+                          <tr>
+                            <th className="px-4 py-3 font-bold text-slate-700">Source / Version</th>
+                            <th className="px-4 py-3 font-bold text-slate-700">Drit Status</th>
+                            <th className="px-4 py-3 font-bold text-slate-700">Action Required</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 font-mono text-[11px]">
+                          <tr>
+                            <td className="px-4 py-3 font-bold">Vercel (Prod)</td>
+                            <td className="px-4 py-3"><span className="text-rose-500 font-bold uppercase tracking-tighter">● HIGH DRIFT (REJECTED)</span></td>
+                            <td className="px-4 py-3 text-slate-400">Decommission</td>
+                          </tr>
+                          <tr>
+                            <td className="px-4 py-3 font-bold">Manus-v2 (GitHub)</td>
+                            <td className="px-4 py-3"><span className="text-amber-500 font-bold uppercase tracking-tighter">● SITEMAP ERRORS</span></td>
+                            <td className="px-4 py-3 text-slate-400">Extract Logic Only</td>
+                          </tr>
+                          <tr>
+                            <td className="px-4 py-3 font-bold">Replit Launcher</td>
+                            <td className="px-4 py-3"><span className="text-emerald-500 font-bold uppercase tracking-tighter">● VOICE SYNCED</span></td>
+                            <td className="px-4 py-3 text-slate-400">Keep Content Logic</td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+
+                    <div className="p-4 bg-slate-900 rounded-2xl">
+                      <h4 className="text-xs font-bold text-emerald-400 uppercase mb-3 flex items-center gap-2">
+                        <Zap size={14} /> Master Spec Output
+                      </h4>
+                      <p className="text-[10px] text-slate-400 mb-4 italic">Copy this to create the 'Clean Slate' repo.</p>
+                      <pre className="text-[10px] bg-black/40 p-4 rounded-xl border border-slate-800 text-emerald-300 font-mono overflow-x-auto whitespace-pre-wrap shadow-2xl">
+{`TITLE: THE WELL LIVED CITIZEN - MASTER SPEC v1.1
+DATE: 2026-04-26
+DIRECTIVE: RECONCELIATION OF DRIFT
+
+1. SERVICE DOOR LOCKS:
+   - Door 1: Home Org ($150/hr, $1200 day)
+   - Door 2: Legacy Catalogs (From $3500)
+   - Door 3: House Calls ($175/hr)
+   - Door 4: Resale (55/45 Split)
+
+2. REJECTION LOG (CRITICAL):
+   - NO "Elder Care" mentions.
+   - NO "Estate Sale" keywords.
+   - NO comparisons to TaskRabbit/Gig rates.
+
+3. VOICE PARAMETERS:
+   - "Dayna Brown: Operational Rigor & Luxury Nuance."
+   - "Life is messy... but it's always well lived."`}
+                      </pre>
+                      <button 
+                        onClick={() => {
+                          const text = `TITLE: THE WELL LIVED CITIZEN - MASTER SPEC v1.1\nDATE: 2026-04-26\nDIRECTIVE: RECONCELIATION OF DRIFT\n\n1. SERVICE DOOR LOCKS:\n   - Door 1: Home Org ($150/hr, $1200 day)\n   - Door 2: Legacy Catalogs (From $3500)\n   - Door 3: House Calls ($175/hr)\n   - Door 4: Resale (55/45 Split)\n\n2. REJECTION LOG (CRITICAL):\n   - NO "Elder Care" mentions.\n   - NO "Estate Sale" keywords.\n   - NO comparisons to TaskRabbit/Gig rates.\n\n3. VOICE PARAMETERS:\n   - "Dayna Brown: Operational Rigor & Luxury Nuance."\n   - "Life is messy... but it's always well lived."`;
+                          navigator.clipboard.writeText(text);
+                        }}
+                        className="mt-3 w-full border border-emerald-900 bg-emerald-950/30 text-emerald-400 py-3 rounded-xl text-[10px] font-bold hover:bg-emerald-900 hover:text-white transition-all uppercase tracking-widest"
+                      >
+                        COPY MASTER SPEC
+                      </button>
+                    </div>
+                  </div>
+                </Card>
+
+                <div className="space-y-6">
+                  <Card title="Stable Hosting: The New Tank" className="border-emerald-200 bg-emerald-50/10">
+                    <div className="space-y-4">
+                      <div className="p-3 bg-emerald-100 rounded-xl border border-emerald-200 flex items-center gap-3">
+                        <ShieldCheck size={20} className="text-emerald-600" />
+                        <div>
+                          <h5 className="text-[11px] font-black text-emerald-800 uppercase">PROPOSAL: Firebase Hosting</h5>
+                          <p className="text-[10px] text-emerald-700">Stable, manual, no "smart" drift.</p>
+                        </div>
+                      </div>
+                      <p className="text-[10px] text-slate-500 italic">Vercel and Netlify are fired. We need a 'Passive' host that only listens to this dashboard.</p>
+                      <button className="w-full bg-slate-900 text-white py-3 rounded-xl text-[10px] font-black hover:bg-black transition-all shadow-lg uppercase tracking-widest">
+                        PREP FIREBASE DEPLOY
+                      </button>
+                    </div>
+                  </Card>
+
+                  <Card title="Site Reconstruction Log" className="border-rose-100">
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-3 p-2 border-l-2 border-rose-500 bg-rose-50/50 rounded-r-lg">
+                        <AlertCircle size={14} className="text-rose-500" />
+                        <span className="text-[10px] font-bold text-rose-700 uppercase">Drift Point:</span>
+                        <span className="text-[10px] text-slate-600 italic">Manus added 'Elder Care'</span>
+                      </div>
+                      <div className="flex items-center gap-3 p-2 border-l-2 border-rose-500 bg-rose-50/50 rounded-r-lg">
+                        <AlertCircle size={14} className="text-rose-500" />
+                        <span className="text-[10px] font-bold text-rose-700 uppercase">Drift Point:</span>
+                        <span className="text-[10px] text-slate-600 italic">Replit changed rates to $145</span>
+                      </div>
+                      <div className="flex items-center gap-3 p-2 border-l-2 border-emerald-500 bg-emerald-50/50 rounded-r-lg">
+                        <ShieldCheck size={14} className="text-emerald-500" />
+                        <span className="text-[10px] font-bold text-emerald-700 uppercase">Corrected:</span>
+                        <span className="text-[10px] text-slate-600 italic">Forced $150 minimum</span>
+                      </div>
+                    </div>
+                  </Card>
+                </div>
+              </div>
+            </motion.div>
+          )}
+
+          {activeTab === 'content-launcher' && (
+            <motion.div 
+              key="content-launcher"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              className="space-y-6"
+            >
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <Card title="Voice Guard Transformer" className="border-indigo-200">
+                  <div className="space-y-4">
+                    <div className="p-3 bg-indigo-50 border border-indigo-100 rounded-xl">
+                      <p className="text-[10px] text-indigo-700 font-bold uppercase mb-1">Status: Identity Locked</p>
+                      <p className="text-[11px] text-indigo-600 italic leading-relaxed">This tool prevents "fur coats and china" braindumps. It extracts the operational principle automatically.</p>
+                    </div>
+                    <textarea 
+                      placeholder="Input raw notes or draft copy here..."
+                      className="w-full h-48 p-5 bg-slate-50 border border-slate-100 rounded-2xl text-sm outline-none focus:ring-2 focus:ring-indigo-500 shadow-inner font-serif"
+                    />
+                    <button className="w-full bg-slate-900 text-white py-4 rounded-2xl font-black flex items-center justify-center gap-2 hover:bg-black transition-all shadow-xl uppercase tracking-widest text-xs">
+                      <Sparkles size={16} className="text-indigo-400" /> RECONCILE VOICE & BRAND
+                    </button>
+                  </div>
+                </Card>
+
+                <div className="space-y-6">
+                  <Card title="Launch Asset Queue" className="bg-slate-50/50">
+                    <div className="space-y-4">
+                      <div className="flex justify-between items-center p-3 bg-white border border-slate-100 rounded-xl shadow-sm hover:shadow-md transition-shadow">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 bg-indigo-100 rounded-lg flex items-center justify-center text-indigo-600 font-bold text-[10px]">IG</div>
+                          <div>
+                            <p className="text-[11px] font-bold text-slate-800">Carousel: 3 Sins of Downsizing</p>
+                            <p className="text-[9px] text-slate-400 uppercase">Ready for Voice Guard</p>
+                          </div>
+                        </div>
+                        <button className="text-indigo-600 hover:text-indigo-800"><ChevronRight size={16} /></button>
+                      </div>
+                      <div className="flex justify-between items-center p-3 bg-white border border-slate-100 rounded-xl shadow-sm hover:shadow-md transition-shadow">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 bg-emerald-100 rounded-lg flex items-center justify-center text-emerald-600 font-bold text-[10px]">WEB</div>
+                          <div>
+                            <p className="text-[11px] font-bold text-slate-800">Hero Section Copy Re-write</p>
+                            <p className="text-[9px] text-slate-400 uppercase">Synced to Master Spec</p>
+                          </div>
+                        </div>
+                        <button className="text-emerald-600 hover:text-emerald-800"><ChevronRight size={16} /></button>
+                      </div>
+                    </div>
+                  </Card>
+
+                  <Card title="Marketing Fuel Gauge">
+                    <div className="space-y-4">
+                      <div className="flex justify-between text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                        <span>Relevance</span>
+                        <span>Launch Readiness</span>
+                      </div>
+                      <div className="w-full h-3 bg-slate-100 rounded-full overflow-hidden flex shadow-inner">
+                        <div className="h-full bg-emerald-500 w-[85%] shadow-[0_0_10px_rgba(16,185,129,0.3)]" />
+                        <div className="h-full bg-indigo-500 w-[10%]" />
+                      </div>
+                      <p className="text-[11px] text-slate-500 italic">We are 85% ready with Voice-Locked assets. 15% pending manual approval of the 'Master Protocol'.</p>
+                    </div>
+                  </Card>
                 </div>
               </div>
             </motion.div>
