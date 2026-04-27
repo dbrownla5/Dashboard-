@@ -277,6 +277,16 @@ export default function App() {
     return new GoogleGenAI({ apiKey: key });
   }, [hasApiKey]);
 
+  const handleAiError = (error: any, setter: (val: string) => void, fallbackData?: string) => {
+    console.error("AI Error:", error);
+    if (error.message?.includes("429") || error.message?.includes("RESOURCE_EXHAUSTED")) {
+      const quotaMsg = "### ⚠️ API Quota Exceeded\nThe shared API key has reached its limit. To continue using real-time market data and strategic analysis, please select your **Paid API Key** in the sidebar.";
+      setter(fallbackData ? `${quotaMsg}\n\n**Current Fallback Data:**\n${fallbackData}` : quotaMsg);
+    } else {
+      setter("Error running analysis. Please check your connection or API key.");
+    }
+  };
+
   const generateMarketReport = async () => {
     setIsGeneratingReport(true);
     try {
@@ -289,20 +299,11 @@ export default function App() {
       });
       setMarketReport(response.text || "Failed to generate report.");
     } catch (error: any) {
-      console.error("Report generation error:", error);
-      if (error.message?.includes("429") || error.message?.includes("RESOURCE_EXHAUSTED")) {
-        setMarketReport(`
-### ⚠️ API Quota Exceeded
-The shared API key has reached its limit. To continue using real-time market data and strategic analysis, please select your **Paid API Key** in the sidebar.
-
-**Current Fallback Data:**
+      handleAiError(error, setMarketReport, `
 * **Inheritance Trends:** Trillions passing to Millennials; 58% of Boomers lack wills.
 * **Geographic Proximity:** 35% of adult children live out-of-state from aging parents.
 * **Top Reasons for Hiring:** Downsizing (35%), Mental Clarity (28%), Transitions (22%).
-        `);
-      } else {
-        setMarketReport("Error generating report. Please check your connection or API key.");
-      }
+      `);
     } finally {
       setIsGeneratingReport(false);
     }
@@ -318,12 +319,7 @@ The shared API key has reached its limit. To continue using real-time market dat
       });
       setSeoAnalysis(response.text || "SEO strategy generation failed.");
     } catch (error: any) {
-      console.error("SEO error:", error);
-      if (error.message?.includes("429") || error.message?.includes("RESOURCE_EXHAUSTED")) {
-        setSeoAnalysis("⚠️ API Quota Exceeded. Please select your Paid API Key in the sidebar to run this analysis.");
-      } else {
-        setSeoAnalysis("Error generating SEO strategy.");
-      }
+      handleAiError(error, setSeoAnalysis);
     } finally {
       setIsAnalyzing(false);
     }
@@ -351,12 +347,7 @@ The shared API key has reached its limit. To continue using real-time market dat
       });
       setHandoffAnalysis(response.text || "Handoff generation failed.");
     } catch (error: any) {
-      console.error("Handoff error:", error);
-      if (error.message?.includes("429") || error.message?.includes("RESOURCE_EXHAUSTED")) {
-        setHandoffAnalysis("⚠️ API Quota Exceeded. Please select your Paid API Key in the sidebar to run this analysis.");
-      } else {
-        setHandoffAnalysis("Error generating handoff document.");
-      }
+      handleAiError(error, setHandoffAnalysis);
     } finally {
       setIsAnalyzing(false);
     }
@@ -377,14 +368,14 @@ The shared API key has reached its limit. To continue using real-time market dat
         - Tone: Trusted, Professional, Operational, Human.
         - Operational Nuance: Night Owl (prefers late morning/evening client work, off-site research at night).
         - Tagline: Well Placed. Well Dressed (again). Transitions done Well.
-
+ 
         Please provide:
         1. STRATEGIC BRANDING AUDIT: Does the messaging capture the "Inventory as a Decision Tool" value?
         2. STRATEGIC GUARDRAILS: Identify potential "Terrible Decisions" (requests to say NO to) based on the operational model (e.g., construction, legal, low-value bulk liquidation).
         3. MARKET CORRELATIONS: How this draft resonates with current post-pandemic consumer behavior (Hyper-transparency, "Safe Stranger").
         4. COLOR & UX ADVICE: Does the messaging match the preferred Sage/Navy/Taupe palette?
         5. ACTIONABLE MESSAGING: 3 specific hooks for the "Legacy Catalog" that focus on family harmony and "Storytelling to Sale".
-
+ 
         Draft Content:
         ${draftInput}`,
         config: {
@@ -393,12 +384,7 @@ The shared API key has reached its limit. To continue using real-time market dat
       });
       setValidatorAnalysis(response.text || "Analysis failed.");
     } catch (error: any) {
-      console.error("Analysis error:", error);
-      if (error.message?.includes("429") || error.message?.includes("RESOURCE_EXHAUSTED")) {
-        setValidatorAnalysis("⚠️ API Quota Exceeded. Please select your Paid API Key in the sidebar to run this analysis.");
-      } else {
-        setValidatorAnalysis("Error running analysis. Please try again.");
-      }
+      handleAiError(error, setValidatorAnalysis);
     } finally {
       setIsAnalyzing(false);
     }
@@ -414,7 +400,7 @@ The shared API key has reached its limit. To continue using real-time market dat
         There is "AI Drift" and voice lockouts. 
         
         REPO DATA / URL PROVIDED: ${repoUrl}
-
+ 
         TASK: 
         1. Parse the structure provided (if URLs, explain what to look for; if file tree, analyze conflict).
         2. Reconcile the "True Sitemap" based on the Brain Engine specs:
@@ -425,8 +411,7 @@ The shared API key has reached its limit. To continue using real-time market dat
       });
       setRepoAnalysis(response.text || "Analysis failed.");
     } catch (error: any) {
-      console.error("Repo Analysis error:", error);
-      setRepoAnalysis("Error running repo analysis. Please ensure you provided the repo details.");
+      handleAiError(error, setRepoAnalysis);
     } finally {
       setIsAnalyzing(false);
     }
@@ -944,7 +929,7 @@ The shared API key has reached its limit. To continue using real-time market dat
                         });
                         setAuditAnalysis(response.text || "Audit failed.");
                       } catch (e) {
-                        setAuditAnalysis("Error running audit.");
+                        handleAiError(e, setAuditAnalysis);
                       } finally {
                         setIsAnalyzing(false);
                       }
@@ -1075,7 +1060,7 @@ The shared API key has reached its limit. To continue using real-time market dat
                         });
                         setScopingAnalysis(response.text || "Scoping failed.");
                       } catch (e) {
-                        setScopingAnalysis("Error running scope analysis.");
+                        handleAiError(e, setScopingAnalysis);
                       } finally {
                         setIsAnalyzing(false);
                       }
@@ -1315,7 +1300,7 @@ The shared API key has reached its limit. To continue using real-time market dat
                               setPricingPulseAnalysis(response.text || "Pricing pulse failed.");
                               // Results shown below
                             } catch (e) {
-                              setPricingPulseAnalysis("Error running pricing pulse.");
+                              handleAiError(e, setPricingPulseAnalysis);
                             } finally {
                               setIsAnalyzing(false);
                             }
