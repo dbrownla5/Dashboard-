@@ -61,7 +61,7 @@ import { collection, addDoc, serverTimestamp, doc, setDoc } from 'firebase/fires
 
 // --- Types ---
 
-type Tab = 'market' | 'home-org' | 'spending' | 'validator' | 'site-audit' | 'scope-tool' | 'launch-strategy' | 'catalog' | 'logistics-crm' | 'success-planner' | 'seo-growth' | 'handoff' | 'site-manager' | 'content-launcher';
+type Tab = 'market' | 'home-org' | 'spending' | 'launch-strategy' | 'catalog' | 'logistics-crm' | 'success-planner' | 'seo-growth' | 'handoff' | 'content-launcher';
 
 interface MarketData {
   inheritanceTrends: any[];
@@ -240,13 +240,6 @@ export default function App() {
   const [location, setLocation] = useState('Los Angeles, CA');
   const [complexity, setComplexity] = useState('5');
   const [validatorAnalysis, setValidatorAnalysis] = useState<string | null>(null);
-  const [repoUrl, setRepoUrl] = useState('');
-  const [repoAnalysis, setRepoAnalysis] = useState<string | null>(null);
-  const [scopingAnalysis, setScopingAnalysis] = useState<string | null>(null);
-  const [auditAnalysis, setAuditAnalysis] = useState<string | null>(null);
-  const [pricingPulseAnalysis, setPricingPulseAnalysis] = useState<string | null>(null);
-  const [seoAnalysis, setSeoAnalysis] = useState<string | null>(null);
-  const [handoffAnalysis, setHandoffAnalysis] = useState<string | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [marketReport, setMarketReport] = useState<string | null>(null);
   const [isGeneratingReport, setIsGeneratingReport] = useState(false);
@@ -257,35 +250,6 @@ export default function App() {
 
   const [user, setUser] = useState<User | null>(null);
   const [hasApiKey, setHasApiKey] = useState(false);
-  const [savedRepos, setSavedRepos] = useState<any[]>([]);
-  const [isLoadingRepos, setIsLoadingRepos] = useState(false);
-
-  useEffect(() => {
-    if (activeTab === 'site-manager' && user) {
-      loadSavedRepos();
-    }
-  }, [activeTab, user]);
-
-  const [viewingRepo, setViewingRepo] = useState<any | null>(null);
-
-  const loadSavedRepos = async () => {
-    setIsLoadingRepos(true);
-    try {
-      const { query, collection, getDocs, where, orderBy } = await import('firebase/firestore');
-      const q = query(
-        collection(db, 'repositories'),
-        where('userId', '==', user?.uid),
-        orderBy('extractedAt', 'desc')
-      );
-      const snapshot = await getDocs(q);
-      const repos = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      setSavedRepos(repos);
-    } catch (e) {
-      handleFirestoreError(e, OperationType.LIST, 'repositories');
-    } finally {
-      setIsLoadingRepos(false);
-    }
-  };
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
@@ -442,73 +406,6 @@ export default function App() {
     }
   };
 
-  const analyzeRepo = async () => {
-    if (!repoUrl.trim()) return;
-    setIsAnalyzing(true);
-    try {
-      const response = await ai.models.generateContent({
-        model: "gemini-3.1-pro-preview",
-        contents: `I am salvaging high-value functional code and business logic for "The Well Lived Citizen".
-        
-        SOURCE CONTENT / CODE:
-        ${repoUrl}
-
-        OBJECTIVE:
-        Extract the "Gold Logic" from the provided source and scrub it of any "AI Ego" (e.g., Elder Care, Estate Sales, placeholder content).
-        
-        SPECIFICALLY LOOK FOR:
-        1. PRICING & COMMISSIONS: Exact percentages, hourly rates, or fee structures.
-        2. INTAKE FORMS: Questions asked, data fields, and workflow steps for Home Org/Resale.
-        3. BOOKING LOGIC: How "Top Sell Now" or "Bookings" were structured on the homepage.
-        4. SERVICE LINE SYNC: Align logic to (Home Org, Legacy/Archives, Resale).
-
-        OUTPUT STRUCTURE:
-        ### 💎 Salvaged Business Logic
-        [The exact pricing/commission logic found]
-
-        ### 📋 Functional Components (Scrubbed)
-        [Code or detailed description of the Intake/Booking forms]
-
-        ### 🚀 Integration Plan
-        [Step-by-step for Manus to integrate this into the current project]`,
-      });
-      const analysisText = response.text || "Analysis failed.";
-      setRepoAnalysis(analysisText);
-
-      // Save to Firestore if user is logged in
-      if (user) {
-        try {
-          const repoRef = await addDoc(collection(db, 'repositories'), {
-            url: repoUrl.substring(0, 100) + (repoUrl.length > 100 ? "..." : ""),
-            name: "Extraction: " + new Date().toLocaleTimeString(),
-            extractedAt: new Date().toISOString(),
-            status: "analyzed",
-            userId: user.uid,
-            summary: analysisText
-          });
-
-          await addDoc(collection(db, `repositories/${repoRef.id}/components`), {
-            repoId: repoRef.id,
-            name: "Master Extraction Logic",
-            code: analysisText,
-            integrated: false,
-            voiceMatch: 95,
-            userId: user.uid,
-            createdAt: serverTimestamp()
-          });
-
-          // Refresh list
-          loadSavedRepos();
-        } catch (dbErr) {
-          handleFirestoreError(dbErr, OperationType.WRITE, 'repositories');
-        }
-      }
-    } catch (error: any) {
-      handleAiError(error, setRepoAnalysis);
-    } finally {
-      setIsAnalyzing(false);
-    }
-  };
 
   useEffect(() => {
     generateMarketReport();
@@ -554,24 +451,6 @@ export default function App() {
             onClick={() => setActiveTab('spending')} 
           />
           <SidebarItem 
-            icon={ShieldCheck} 
-            label="Business Validator" 
-            active={activeTab === 'validator'} 
-            onClick={() => setActiveTab('validator')} 
-          />
-          <SidebarItem 
-            icon={FileText} 
-            label="Site Component Audit" 
-            active={activeTab === 'site-audit'} 
-            onClick={() => setActiveTab('site-audit')} 
-          />
-          <SidebarItem 
-            icon={BarChart3} 
-            label="Project Scoping Tool" 
-            active={activeTab === 'scope-tool'} 
-            onClick={() => setActiveTab('scope-tool')} 
-          />
-          <SidebarItem 
             icon={TrendingUp} 
             label="Launch Strategy" 
             active={activeTab === 'launch-strategy'} 
@@ -588,12 +467,6 @@ export default function App() {
             label="Success Planner" 
             active={activeTab === 'success-planner'} 
             onClick={() => setActiveTab('success-planner')} 
-          />
-          <SidebarItem 
-            icon={LayoutDashboard} 
-            label="Command Center" 
-            active={activeTab === 'site-manager'} 
-            onClick={() => setActiveTab('site-manager')} 
           />
           <SidebarItem 
             icon={Zap} 
@@ -672,21 +545,16 @@ export default function App() {
               {activeTab === 'market' && "Market Intelligence Dashboard"}
               {activeTab === 'home-org' && "Home Organization Deep Dive"}
               {activeTab === 'spending' && "Consumer Spending & Psychology"}
-              {activeTab === 'validator' && "Strategic Business Validator"}
-              {activeTab === 'site-audit' && "Website Component Audit"}
-              {activeTab === 'scope-tool' && "Project Scoping & Value Tool"}
               {activeTab === 'launch-strategy' && "The Well Lived Citizen: Launch Strategy"}
               {activeTab === 'catalog' && "Full Service Catalog & Pricing"}
               {activeTab === 'seo-growth' && "SEO & Growth Strategy"}
               {activeTab === 'handoff' && "Developer Handoff Tool (Manus)"}
               {activeTab === 'success-planner' && "Success Planner & Revenue Projections"}
               {activeTab === 'logistics-crm' && "Logistics & CRM Strategy"}
-              {activeTab === 'site-manager' && "Unified Command Center & Site Manager"}
               {activeTab === 'content-launcher' && "Replit Content Launcher Port"}
             </h2>
             <p className="text-slate-500 italic">
               {activeTab === 'market' ? "A will divides the assets. It does not decide what happens to the things that made a life feel like home." : 
-               activeTab === 'site-manager' ? "One button. One voice. One live site." :
                activeTab === 'content-launcher' ? "Relief at scale. The marketing engine, stabilized." :
                "Well Placed. Well Dressed (again). Transitions done Well."}
             </p>
@@ -974,52 +842,6 @@ export default function App() {
             </motion.div>
           )}
 
-          {activeTab === 'validator' && (
-            <motion.div 
-              key="validator"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              className="space-y-6"
-            >
-              <Card title="Website Draft & Business Brief Analysis">
-                <p className="text-sm text-slate-500 mb-4">
-                  Paste your website drafts, business names, or domains below. Our AI will validate them against the market data above.
-                </p>
-                <div className="relative">
-                  <textarea
-                    value={draftInput}
-                    onChange={(e) => setDraftInput(e.target.value)}
-                    placeholder="Paste your draft here... e.g., 'Legacy Organizers - Helping parents downsize in LA...'"
-                    className="w-full h-48 p-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all outline-none resize-none"
-                  />
-                  <button
-                    onClick={runAnalysis}
-                    disabled={isAnalyzing || !draftInput.trim()}
-                    className="absolute bottom-4 right-4 bg-indigo-600 text-white px-6 py-2 rounded-xl font-bold shadow-lg shadow-indigo-200 hover:bg-indigo-700 transition-all flex items-center gap-2 disabled:opacity-50"
-                  >
-                    {isAnalyzing ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}
-                    Run Validation
-                  </button>
-                </div>
-              </Card>
-
-              {validatorAnalysis && (
-                <Card title="AI Strategic Validation Report" className="border-indigo-200 bg-indigo-50/30">
-                  <div className="prose prose-indigo max-w-none">
-                    <Markdown>{validatorAnalysis}</Markdown>
-                  </div>
-                </Card>
-              )}
-              {pricingPulseAnalysis && (
-                <Card title="Market Pricing Pulse Results" className="border-emerald-200 bg-emerald-50/30 mt-6">
-                  <div className="prose prose-emerald max-w-none">
-                    <Markdown>{pricingPulseAnalysis}</Markdown>
-                  </div>
-                </Card>
-              )}
-            </motion.div>
-          )}
 
           {activeTab === 'site-audit' && (
             <motion.div 
@@ -2182,143 +2004,6 @@ export default function App() {
                     </div>
                   </Card>
                 </div>
-                <Card title="Extraction History & Salvaged Tools" className="lg:col-span-2 border-emerald-200">
-                  <div className="space-y-4">
-                    <p className="text-sm text-slate-500 mb-6 font-medium border-l-4 border-emerald-500 pl-4 py-1">
-                      Historical extractions from previous AI sessions. Sync these into your new Master Spec.
-                    </p>
-                    <div className="overflow-x-auto rounded-xl border border-slate-100 shadow-inner bg-slate-50/30">
-                      {isLoadingRepos ? (
-                        <div className="flex items-center justify-center p-12">
-                          <Loader2 size={24} className="animate-spin text-emerald-600" />
-                        </div>
-                      ) : savedRepos.length > 0 ? (
-                        <table className="w-full text-left text-sm">
-                          <thead className="bg-slate-100/50 border-b border-slate-100">
-                            <tr>
-                              <th className="px-4 py-3 font-bold text-slate-700">Extraction Name</th>
-                              <th className="px-4 py-3 font-bold text-slate-700">Source</th>
-                              <th className="px-4 py-3 font-bold text-slate-700">Date</th>
-                              <th className="px-4 py-3 font-bold text-slate-700">Action</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-slate-100 font-mono text-[11px]">
-                            {savedRepos.map((repo) => (
-                              <tr key={repo.id} className="hover:bg-white transition-colors">
-                                <td className="px-4 py-3 font-bold text-slate-800">{repo.name}</td>
-                                <td className="px-4 py-3 text-slate-500">
-                                  <span className="truncate max-w-[150px] inline-block">{repo.url}</span>
-                                </td>
-                                <td className="px-4 py-3 text-slate-400">
-                                  {new Date(repo.extractedAt).toLocaleDateString()}
-                                </td>
-                                <td className="px-4 py-3">
-                                  <button 
-                                    onClick={() => setViewingRepo(repo)}
-                                    className="text-emerald-600 font-bold hover:underline"
-                                  >
-                                    View Logic
-                                  </button>
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      ) : (
-                        <div className="p-12 text-center text-slate-400 font-mono text-[10px]">
-                          NO SALVAGED DATA FOUND. EXTRACT LOGIC TO POOL TOOLS HERE.
-                        </div>
-                      )}
-                    </div>
-
-                    <AnimatePresence>
-                      {viewingRepo && (
-                        <motion.div 
-                          initial={{ opacity: 0, scale: 0.95 }}
-                          animate={{ opacity: 1, scale: 1 }}
-                          exit={{ opacity: 0, scale: 0.95 }}
-                          className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm"
-                        >
-                          <div className="bg-white rounded-3xl w-full max-w-4xl max-h-[80vh] overflow-hidden flex flex-col shadow-2xl border border-slate-200">
-                            <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50">
-                              <div>
-                                <h3 className="text-lg font-black text-slate-900">{viewingRepo.name}</h3>
-                                <p className="text-xs text-slate-500 font-mono">{viewingRepo.url}</p>
-                              </div>
-                              <button 
-                                onClick={() => setViewingRepo(null)}
-                                className="p-2 hover:bg-slate-200 rounded-full transition-colors"
-                              >
-                                <X size={20} className="text-slate-400" />
-                              </button>
-                            </div>
-                            <div className="p-8 overflow-y-auto bg-slate-50/50">
-                              <div className="mb-6 space-y-2">
-                                <span className="px-3 py-1 bg-emerald-100 text-emerald-700 text-[10px] font-bold rounded-full uppercase tracking-wider">Scrubbed Logic</span>
-                                <h4 className="font-bold text-slate-800 text-sm italic">"The engine has removed non-brand services and locked the voice to 'The Well Lived Citizen'."</h4>
-                              </div>
-                              <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-                                <div className="markdown-body text-sm text-slate-700 whitespace-pre-wrap font-mono leading-relaxed">
-                                  <Markdown>{viewingRepo.summary || "No logic summary found for this extraction."}</Markdown>
-                                </div>
-                              </div>
-                            </div>
-                            <div className="p-6 border-t border-slate-100 bg-white flex justify-end gap-3">
-                              <button 
-                                onClick={() => setViewingRepo(null)}
-                                className="px-6 py-2 rounded-xl text-sm font-bold text-slate-500 hover:bg-slate-100 transition-all"
-                              >
-                                Close
-                              </button>
-                              <button 
-                                className="px-6 py-2 bg-emerald-600 text-white rounded-xl text-sm font-bold hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-100 flex items-center gap-2"
-                              >
-                                <Zap size={16} />
-                                Apply to Master Spec
-                              </button>
-                            </div>
-                          </div>
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
-
-                    <div className="p-4 bg-slate-900 rounded-2xl">
-                      <h4 className="text-xs font-bold text-emerald-400 uppercase mb-3 flex items-center gap-2">
-                        <Zap size={14} /> Master Spec Output
-                      </h4>
-                      <p className="text-[10px] text-slate-400 mb-4 italic">Copy this to create the 'Clean Slate' repo.</p>
-                      <pre className="text-[10px] bg-black/40 p-4 rounded-xl border border-slate-800 text-emerald-300 font-mono overflow-x-auto whitespace-pre-wrap shadow-2xl">
-{`TITLE: THE WELL LIVED CITIZEN - MASTER SPEC v1.1
-DATE: 2026-04-26
-DIRECTIVE: RECONCELIATION OF DRIFT
-
-1. SERVICE DOOR LOCKS:
-   - Door 1: Home Org ($150/hr, $1200 day)
-   - Door 2: Legacy Catalogs (From $3500)
-   - Door 3: House Calls ($175/hr)
-   - Door 4: Resale (55/45 Split)
-
-2. REJECTION LOG (CRITICAL):
-   - NO "Elder Care" mentions.
-   - NO "Estate Sale" keywords.
-   - NO comparisons to TaskRabbit/Gig rates.
-
-3. VOICE PARAMETERS:
-   - "Dayna Brown: Operational Rigor & Luxury Nuance."
-   - "Life is messy... but it's always well lived."`}
-                      </pre>
-                      <button 
-                        onClick={() => {
-                          const text = `TITLE: THE WELL LIVED CITIZEN - MASTER SPEC v1.1\nDATE: 2026-04-26\nDIRECTIVE: RECONCELIATION OF DRIFT\n\n1. SERVICE DOOR LOCKS:\n   - Door 1: Home Org ($150/hr, $1200 day)\n   - Door 2: Legacy Catalogs (From $3500)\n   - Door 3: House Calls ($175/hr)\n   - Door 4: Resale (55/45 Split)\n\n2. REJECTION LOG (CRITICAL):\n   - NO "Elder Care" mentions.\n   - NO "Estate Sale" keywords.\n   - NO comparisons to TaskRabbit/Gig rates.\n\n3. VOICE PARAMETERS:\n   - "Dayna Brown: Operational Rigor & Luxury Nuance."\n   - "Life is messy... but it's always well lived."`;
-                          navigator.clipboard.writeText(text);
-                        }}
-                        className="mt-3 w-full border border-emerald-900 bg-emerald-950/30 text-emerald-400 py-3 rounded-xl text-[10px] font-bold hover:bg-emerald-900 hover:text-white transition-all uppercase tracking-widest"
-                      >
-                        COPY MASTER SPEC
-                      </button>
-                    </div>
-                  </div>
-                </Card>
 
                 <div className="space-y-6">
                   <Card title="Launch Pad: Deployment Status" className="border-emerald-200 bg-emerald-50/10">
