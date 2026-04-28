@@ -325,10 +325,15 @@ export default function App() {
                     errorStr.includes("QUOTA") || 
                     errorStr.includes("PREPAYMENT") ||
                     errorStr.includes("THROTTLED");
+    
+    const isPermissionDenied = errorStr.includes("403") || errorStr.includes("PERMISSION_DENIED");
 
     if (isQuota) {
       const quotaMsg = "### ⚠️ API Service Alert\n**Credit or Quota Depleted.** Your Google AI Studio prepayment credits may be exhausted or the shared limit was reached.\n\n**To Fix:**\n1. Check your billing at [ai.studio/projects](https://ai.studio/projects).\n2. If you added funds, wait 5-10 minutes for them to reflect.\n3. Ensure your **Paid API Key** is selected in the sidebar.";
       setter(fallbackData ? `${quotaMsg}\n\n**Current Fallback Data:**\n${fallbackData}` : quotaMsg);
+    } else if (isPermissionDenied) {
+      const permissionMsg = "### ⚠️ API Permission Denied (403)\n**The API Key doesn't have permission to use this model or project.**\n\n**To Fix:**\n1. Ensure the 'Generative Language API' is enabled in your Google Cloud Project.\n2. Verify that your API Key is valid and has not been restricted to specific services.\n3. Try selecting a different **API Key** in the sidebar.";
+      setter(permissionMsg);
     } else {
       setter("### ⚠️ Unexpected AI Error\nSomething went wrong with the brain engine. Please check your connection or try again in a moment.");
     }
@@ -443,18 +448,29 @@ export default function App() {
     try {
       const response = await ai.models.generateContent({
         model: "gemini-3.1-pro-preview",
-        contents: `I have a crisis. Multiple AI agents (Manus, Replit, etc.) have built different versions of "The Well Lived Citizen" site across different repos. 
-        There is "AI Drift" and voice lockouts. 
+        contents: `I am salvaging high-value functional code and business logic for "The Well Lived Citizen".
         
-        REPO DATA / URL PROVIDED: ${repoUrl}
- 
-        TASK: 
-        1. Parse the structure provided (if URLs, explain what to look for; if file tree, analyze conflict).
-        2. Reconcile the "True Sitemap" based on the Brain Engine specs:
-           - 3 Service Lines: Home Org (The Last Box), Legacy/Archives, Resale (The Last Look).
-           - Founder: Dayna Brown.
-        3. Identify "AI Ego" errors (e.g. adding features like 'Estate Sales' or 'Elder Care' which we REJECT).
-        4. Provide the "Rocket Fuel" Script to feed into a new, clean repo to build the site correctly.`,
+        SOURCE CONTENT / CODE:
+        ${repoUrl}
+
+        OBJECTIVE:
+        Extract the "Gold Logic" from the provided source and scrub it of any "AI Ego" (e.g., Elder Care, Estate Sales, placeholder content).
+        
+        SPECIFICALLY LOOK FOR:
+        1. PRICING & COMMISSIONS: Exact percentages, hourly rates, or fee structures.
+        2. INTAKE FORMS: Questions asked, data fields, and workflow steps for Home Org/Resale.
+        3. BOOKING LOGIC: How "Top Sell Now" or "Bookings" were structured on the homepage.
+        4. SERVICE LINE SYNC: Align logic to (Home Org, Legacy/Archives, Resale).
+
+        OUTPUT STRUCTURE:
+        ### 💎 Salvaged Business Logic
+        [The exact pricing/commission logic found]
+
+        ### 📋 Functional Components (Scrubbed)
+        [Code or detailed description of the Intake/Booking forms]
+
+        ### 🚀 Integration Plan
+        [Step-by-step for Manus to integrate this into the current project]`,
       });
       const analysisText = response.text || "Analysis failed.";
       setRepoAnalysis(analysisText);
@@ -463,22 +479,26 @@ export default function App() {
       if (user) {
         try {
           const repoRef = await addDoc(collection(db, 'repositories'), {
-            url: repoUrl,
-            name: "Salvaged Repo " + new Date().toLocaleDateString(),
+            url: repoUrl.substring(0, 100) + (repoUrl.length > 100 ? "..." : ""),
+            name: "Extraction: " + new Date().toLocaleTimeString(),
             extractedAt: new Date().toISOString(),
             status: "analyzed",
-            userId: user.uid
+            userId: user.uid,
+            summary: analysisText
           });
 
           await addDoc(collection(db, `repositories/${repoRef.id}/components`), {
             repoId: repoRef.id,
-            name: "Main Strategy Component",
+            name: "Master Extraction Logic",
             code: analysisText,
             integrated: false,
             voiceMatch: 95,
             userId: user.uid,
             createdAt: serverTimestamp()
           });
+
+          // Refresh list
+          loadSavedRepos();
         } catch (dbErr) {
           handleFirestoreError(dbErr, OperationType.WRITE, 'repositories');
         }
@@ -2239,9 +2259,7 @@ export default function App() {
                               </div>
                               <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
                                 <div className="markdown-body text-sm text-slate-700 whitespace-pre-wrap font-mono leading-relaxed">
-                                  {repoAnalysis || "Extraction logic loading..."} 
-                                  {/* Note: In a production app, we would fetch the component subcollection here. 
-                                      For this turn, we use the session state or a placeholder if stale. */}
+                                  <Markdown>{viewingRepo.summary || "No logic summary found for this extraction."}</Markdown>
                                 </div>
                               </div>
                             </div>
@@ -2303,18 +2321,37 @@ DIRECTIVE: RECONCELIATION OF DRIFT
                 </Card>
 
                 <div className="space-y-6">
-                  <Card title="Stable Hosting: The New Tank" className="border-emerald-200 bg-emerald-50/10">
+                  <Card title="Launch Pad: Deployment Status" className="border-emerald-200 bg-emerald-50/10">
                     <div className="space-y-4">
                       <div className="p-3 bg-emerald-100 rounded-xl border border-emerald-200 flex items-center gap-3">
-                        <ShieldCheck size={20} className="text-emerald-600" />
+                        <CheckCircle size={20} className="text-emerald-600" />
                         <div>
-                          <h5 className="text-[11px] font-black text-emerald-800 uppercase">PROPOSAL: Firebase Hosting</h5>
-                          <p className="text-[10px] text-emerald-700">Stable, manual, no "smart" drift.</p>
+                          <h5 className="text-[11px] font-black text-emerald-800 uppercase">Database: PROVISIONED</h5>
+                          <p className="text-[10px] text-emerald-700">Firestore is live in us-west1.</p>
                         </div>
                       </div>
-                      <p className="text-[10px] text-slate-500 italic">Vercel and Netlify are fired. We need a 'Passive' host that only listens to this dashboard.</p>
-                      <button className="w-full bg-slate-900 text-white py-3 rounded-xl text-[10px] font-black hover:bg-black transition-all shadow-lg uppercase tracking-widest">
-                        PREP FIREBASE DEPLOY
+                      
+                      <div className="space-y-2">
+                        <h6 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Pre-Flight Checklist</h6>
+                        {[
+                          { task: "Salvage Intake Forms", done: false },
+                          { task: "Verify $150/hr Rate Logic", done: true },
+                          { task: "Export to GitHub for Vertex", done: false }
+                        ].map((t, i) => (
+                          <div key={i} className="flex items-center gap-2 text-[10px] text-slate-600">
+                            <div className={cn("w-3 h-3 rounded border", t.done ? "bg-emerald-500 border-emerald-600" : "border-slate-300")}>
+                              {t.done && <Check size={10} className="text-white" />}
+                            </div>
+                            <span className={t.done ? "line-through opacity-50" : ""}>{t.task}</span>
+                          </div>
+                        ))}
+                      </div>
+
+                      <button 
+                        onClick={() => window.open('https://console.firebase.google.com/project/gen-lang-client-0138005396/hosting/sites', '_blank')}
+                        className="w-full bg-slate-900 text-white py-3 rounded-xl text-[10px] font-black hover:bg-black transition-all shadow-lg uppercase tracking-widest flex items-center justify-center gap-2"
+                      >
+                        <ExternalLink size={14} /> Open Hosting Console
                       </button>
                     </div>
                   </Card>
