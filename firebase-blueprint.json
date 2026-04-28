@@ -1,0 +1,55 @@
+{
+  "entities": {
+    "Repository": {
+      "title": "Repository",
+      "description": "Metadata about a salvaged or integrated repository",
+      "type": "object",
+      "properties": {
+        "url": { "type": "string", "description": "Source URL or ID" },
+        "name": { "type": "string", "description": "Repo Name" },
+        "extractedAt": { "type": "string", "format": "date-time" },
+        "status": { "type": "string", "description": "Integration status" }
+      },
+      "required": ["url", "name", "extractedAt", "status"]
+    },
+    "Component": {
+      "title": "Component",
+      "description": "Functional logic or code snippet extracted from a repo",
+      "type": "object",
+      "properties": {
+        "repoId": { "type": "string", "description": "Reference to Repository document ID" },
+        "name": { "type": "string", "description": "Component Name" },
+        "code": { "type": "string", "description": "Extracted code logic" },
+        "voiceMatch": { "type": "number", "description": "Voice alignment percentage" },
+        "integrated": { "type": "boolean" },
+        "type": { "type": "string", "description": "Logic type (ui, calculator, etc)" }
+      },
+      "required": ["repoId", "name", "code", "integrated"]
+    },
+    "Spec": {
+      "title": "Master Spec",
+      "description": "Versions of the Master Identity and Service Spec",
+      "type": "object",
+      "properties": {
+        "version": { "type": "string" },
+        "content": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["version", "content", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/repositories/{repoId}": {
+      "schema": "Repository",
+      "description": "Collection of salvaged repositories"
+    },
+    "/repositories/{repoId}/components/{componentId}": {
+      "schema": "Component",
+      "description": "Components extracted from a specific repository"
+    },
+    "/specs/{specId}": {
+      "schema": "Spec",
+      "description": "Versioning for the Master Spec"
+    }
+  }
+}

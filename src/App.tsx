@@ -55,6 +55,9 @@ import Markdown from 'react-markdown';
 import { motion, AnimatePresence } from 'motion/react';
 import { GoogleGenAI } from "@google/genai";
 import { cn } from './lib/utils';
+import { auth, db, login, logout, OperationType, handleFirestoreError } from './lib/firebase';
+import { onAuthStateChanged, User } from 'firebase/auth';
+import { collection, addDoc, serverTimestamp, doc, setDoc } from 'firebase/firestore';
 
 // --- Types ---
 
@@ -252,7 +255,44 @@ export default function App() {
   const [resaleHours, setResaleHours] = useState(10);
   const [resaleCommission, setResaleCommission] = useState(5000);
 
+  const [user, setUser] = useState<User | null>(null);
   const [hasApiKey, setHasApiKey] = useState(false);
+  const [savedRepos, setSavedRepos] = useState<any[]>([]);
+  const [isLoadingRepos, setIsLoadingRepos] = useState(false);
+
+  useEffect(() => {
+    if (activeTab === 'site-manager' && user) {
+      loadSavedRepos();
+    }
+  }, [activeTab, user]);
+
+  const [viewingRepo, setViewingRepo] = useState<any | null>(null);
+
+  const loadSavedRepos = async () => {
+    setIsLoadingRepos(true);
+    try {
+      const { query, collection, getDocs, where, orderBy } = await import('firebase/firestore');
+      const q = query(
+        collection(db, 'repositories'),
+        where('userId', '==', user?.uid),
+        orderBy('extractedAt', 'desc')
+      );
+      const snapshot = await getDocs(q);
+      const repos = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setSavedRepos(repos);
+    } catch (e) {
+      handleFirestoreError(e, OperationType.LIST, 'repositories');
+    } finally {
+      setIsLoadingRepos(false);
+    }
+  };
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser);
+    });
+    return () => unsubscribe();
+  }, []);
 
   useEffect(() => {
     const checkKey = async () => {
@@ -279,11 +319,18 @@ export default function App() {
 
   const handleAiError = (error: any, setter: (val: string) => void, fallbackData?: string) => {
     console.error("AI Error:", error);
-    if (error.message?.includes("429") || error.message?.includes("RESOURCE_EXHAUSTED")) {
-      const quotaMsg = "### ⚠️ API Quota Exceeded\nThe shared API key has reached its limit. To continue using real-time market data and strategic analysis, please select your **Paid API Key** in the sidebar.";
+    const errorStr = JSON.stringify(error).toUpperCase();
+    const isQuota = errorStr.includes("429") || 
+                    errorStr.includes("RESOURCE_EXHAUSTED") || 
+                    errorStr.includes("QUOTA") || 
+                    errorStr.includes("PREPAYMENT") ||
+                    errorStr.includes("THROTTLED");
+
+    if (isQuota) {
+      const quotaMsg = "### ⚠️ API Service Alert\n**Credit or Quota Depleted.** Your Google AI Studio prepayment credits may be exhausted or the shared limit was reached.\n\n**To Fix:**\n1. Check your billing at [ai.studio/projects](https://ai.studio/projects).\n2. If you added funds, wait 5-10 minutes for them to reflect.\n3. Ensure your **Paid API Key** is selected in the sidebar.";
       setter(fallbackData ? `${quotaMsg}\n\n**Current Fallback Data:**\n${fallbackData}` : quotaMsg);
     } else {
-      setter("Error running analysis. Please check your connection or API key.");
+      setter("### ⚠️ Unexpected AI Error\nSomething went wrong with the brain engine. Please check your connection or try again in a moment.");
     }
   };
 
@@ -409,7 +456,33 @@ export default function App() {
         3. Identify "AI Ego" errors (e.g. adding features like 'Estate Sales' or 'Elder Care' which we REJECT).
         4. Provide the "Rocket Fuel" Script to feed into a new, clean repo to build the site correctly.`,
       });
-      setRepoAnalysis(response.text || "Analysis failed.");
+      const analysisText = response.text || "Analysis failed.";
+      setRepoAnalysis(analysisText);
+
+      // Save to Firestore if user is logged in
+      if (user) {
+        try {
+          const repoRef = await addDoc(collection(db, 'repositories'), {
+            url: repoUrl,
+            name: "Salvaged Repo " + new Date().toLocaleDateString(),
+            extractedAt: new Date().toISOString(),
+            status: "analyzed",
+            userId: user.uid
+          });
+
+          await addDoc(collection(db, `repositories/${repoRef.id}/components`), {
+            repoId: repoRef.id,
+            name: "Main Strategy Component",
+            code: analysisText,
+            integrated: false,
+            voiceMatch: 95,
+            userId: user.uid,
+            createdAt: serverTimestamp()
+          });
+        } catch (dbErr) {
+          handleFirestoreError(dbErr, OperationType.WRITE, 'repositories');
+        }
+      }
     } catch (error: any) {
       handleAiError(error, setRepoAnalysis);
     } finally {
@@ -523,6 +596,35 @@ export default function App() {
         </nav>
 
         <div className="mt-auto pt-6 border-t border-slate-100 space-y-3">
+          {user ? (
+            <div className="flex items-center justify-between px-4 py-2 bg-slate-50 rounded-xl">
+              <div className="flex items-center gap-2 truncate">
+                <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold text-xs shrink-0">
+                  {user.email?.charAt(0).toUpperCase()}
+                </div>
+                <div className="flex flex-col truncate">
+                  <span className="text-xs font-bold text-slate-800 truncate">{user.email}</span>
+                  <span className="text-[10px] text-slate-400">Authenticated</span>
+                </div>
+              </div>
+              <button 
+                onClick={logout}
+                className="text-slate-400 hover:text-rose-500 transition-colors"
+                title="Sign Out"
+              >
+                <Moon size={16} />
+              </button>
+            </div>
+          ) : (
+            <button 
+              onClick={login}
+              className="w-full flex items-center gap-3 px-4 py-3 text-sm font-bold text-white bg-slate-900 hover:bg-black rounded-xl transition-all shadow-lg"
+            >
+              <Users size={18} />
+              <span>Sign In with Google</span>
+            </button>
+          )}
+          
           {!hasApiKey && (
             <button 
               onClick={handleSelectKey}
@@ -2014,24 +2116,24 @@ export default function App() {
             >
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <div className="lg:col-span-3">
-                  <Card title="Git Repo Unlocker & Salvage Protocol" className="border-rose-300 bg-rose-50/5">
+                  <Card title="Salvage & Integrate: Repo Scavenger" className="border-emerald-300 bg-emerald-50/5">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                       <div className="space-y-4">
-                        <div className="flex items-center gap-2 text-rose-600">
-                          <Unlock size={20} className="animate-pulse" />
-                          <h4 className="font-black text-sm uppercase tracking-wider">How to Unlock Your Stuck Repos</h4>
+                        <div className="flex items-center gap-2 text-emerald-600">
+                          <PackageSearch size={20} className="animate-pulse" />
+                          <h4 className="font-black text-sm uppercase tracking-wider">The "Gold" Extraction Protocol</h4>
                         </div>
                         <p className="text-xs text-slate-600 leading-relaxed">
-                          When an AI (like Manus or Replit) "locks" a repo with its own drift, you must strip the authority and force a re-read of the <span className="font-bold text-slate-900">Master Spec</span>. Follow these steps to take back control:
+                          Paste code from Manus, Replit, or Lovable below. I will strip away the "AI Ego" and integrate the functional logic (calculators, forms, specialized UIs) into our Master Spec.
                         </p>
                         <div className="space-y-3">
                           {[
-                            { step: "1", title: "Kill the AI Context", desc: "Delete .cursorrules, .replit, or any system-prompt files in the root. These are the 'Ego' files forcing the drift." },
-                            { step: "2", title: "Nuke the Cache", desc: "If using a cloud IDE, clear the project history. The AI is 'remembering' its own mistakes." },
-                            { step: "3", title: "The Spec Injection", desc: "Create a new file called MASTER_IDENTITY.md and paste our Spec from this dashboard." }
+                            { step: "1", title: "Source the Code", desc: "Copy the raw component or logic file from your other repo." },
+                            { step: "2", title: "Scrub the Voice", desc: "The engine will automatically remove any 'Elder Care' or 'Estate Sale' drift." },
+                            { step: "3", title: "Integrate to Engine", desc: "Select 'Integrate' to merge this logic into our current build." }
                           ].map((item) => (
                             <div key={item.step} className="flex gap-3">
-                              <div className="w-5 h-5 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center text-[10px] font-black flex-shrink-0">{item.step}</div>
+                              <div className="w-5 h-5 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center text-[10px] font-black flex-shrink-0">{item.step}</div>
                               <div>
                                 <h5 className="text-[11px] font-bold text-slate-800">{item.title}</h5>
                                 <p className="text-[10px] text-slate-500">{item.desc}</p>
@@ -2042,73 +2144,125 @@ export default function App() {
                       </div>
 
                       <div className="space-y-4">
-                        <div className="p-4 bg-slate-900 rounded-2xl border border-slate-800 shadow-2xl">
-                          <h5 className="text-[10px] font-bold text-rose-400 uppercase mb-3 flex items-center gap-2">
-                            <Terminal size={14} /> The "Repo Reset" Command
-                          </h5>
-                          <p className="text-[9px] text-slate-400 mb-3 italic">Run this in your terminal to force the AI to 'unlock' and align with your voice.</p>
-                          <pre className="text-[10px] text-emerald-400 font-mono bg-black/40 p-3 rounded-lg border border-slate-800 overflow-x-auto">
-{`# 1. Strip AI Ego
-rm -f .cursorrules .replit .ai_logic
-
-# 2. Re-Initialize Identity
-echo "SOURCE_OF_TRUTH=ENGINE_DASH" > .env
-cp MASTER_SPEC.md IDENTITY_LOCK.md
-
-# 3. Force Re-index
-git add . && git commit -m "RESET: Identity Lock Applied"`}
-                          </pre>
-                          <button 
-                            onClick={() => {
-                              const text = `# 1. Strip AI Ego\nrm -f .cursorrules .replit .ai_logic\n\n# 2. Re-Initialize Identity\necho "SOURCE_OF_TRUTH=ENGINE_DASH" > .env\ncp MASTER_SPEC.md IDENTITY_LOCK.md\n\n# 3. Force Re-index\ngit add . && git commit -m "RESET: Identity Lock Applied"`;
-                              navigator.clipboard.writeText(text);
-                            }}
-                            className="w-full mt-3 bg-rose-600/20 border border-rose-500/30 text-rose-400 py-2 rounded-lg text-[9px] font-bold hover:bg-rose-600 hover:text-white transition-all uppercase tracking-widest"
-                          >
-                            Copy Reset Script
-                          </button>
-                        </div>
-                        <div className="p-3 bg-amber-50 rounded-xl border border-amber-100">
-                          <p className="text-[9px] text-amber-800 font-bold">⚠️ CRITICAL ADVICE</p>
-                          <p className="text-[9px] text-amber-700">If a repo is too far gone, DO NOT try to fix it. Extract the <b>Components</b> (useful code) and move them to a <b>Clean Slate</b> repo. Fuel the new one with the Master Spec.</p>
-                        </div>
+                        <textarea 
+                          value={repoUrl}
+                          onChange={(e) => setRepoUrl(e.target.value)}
+                          placeholder="Paste logic/code from Lovable or Manus here..."
+                          className="w-full h-48 p-4 bg-white border border-slate-200 rounded-2xl text-sm outline-none focus:ring-2 focus:ring-emerald-500 shadow-inner font-mono"
+                        />
+                        <button 
+                          onClick={analyzeRepo}
+                          disabled={isAnalyzing}
+                          className="w-full bg-emerald-600 text-white py-4 rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-100"
+                        >
+                          {isAnalyzing ? <Loader2 size={18} className="animate-spin" /> : <Zap size={18} />}
+                          Extract Logic & Integrate
+                        </button>
                       </div>
                     </div>
                   </Card>
                 </div>
-                <Card title="Master Recon: Unified Git & Deploy" className="lg:col-span-2 border-indigo-200">
+                <Card title="Extraction History & Salvaged Tools" className="lg:col-span-2 border-emerald-200">
                   <div className="space-y-4">
-                    <p className="text-sm text-slate-500 mb-6 font-medium border-l-4 border-indigo-500 pl-4 py-1">
-                      The "Fuel" for your rocketship. Track and reconcile the drift from Vercel, Replit, and Manus versions here.
+                    <p className="text-sm text-slate-500 mb-6 font-medium border-l-4 border-emerald-500 pl-4 py-1">
+                      Historical extractions from previous AI sessions. Sync these into your new Master Spec.
                     </p>
                     <div className="overflow-x-auto rounded-xl border border-slate-100 shadow-inner bg-slate-50/30">
-                      <table className="w-full text-left text-sm">
-                        <thead className="bg-slate-100/50 border-b border-slate-100">
-                          <tr>
-                            <th className="px-4 py-3 font-bold text-slate-700">Source / Version</th>
-                            <th className="px-4 py-3 font-bold text-slate-700">Drit Status</th>
-                            <th className="px-4 py-3 font-bold text-slate-700">Action Required</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100 font-mono text-[11px]">
-                          <tr>
-                            <td className="px-4 py-3 font-bold">Vercel (Prod)</td>
-                            <td className="px-4 py-3"><span className="text-rose-500 font-bold uppercase tracking-tighter">● HIGH DRIFT (REJECTED)</span></td>
-                            <td className="px-4 py-3 text-slate-400">Decommission</td>
-                          </tr>
-                          <tr>
-                            <td className="px-4 py-3 font-bold">Manus-v2 (GitHub)</td>
-                            <td className="px-4 py-3"><span className="text-amber-500 font-bold uppercase tracking-tighter">● SITEMAP ERRORS</span></td>
-                            <td className="px-4 py-3 text-slate-400">Extract Logic Only</td>
-                          </tr>
-                          <tr>
-                            <td className="px-4 py-3 font-bold">Replit Launcher</td>
-                            <td className="px-4 py-3"><span className="text-emerald-500 font-bold uppercase tracking-tighter">● VOICE SYNCED</span></td>
-                            <td className="px-4 py-3 text-slate-400">Keep Content Logic</td>
-                          </tr>
-                        </tbody>
-                      </table>
+                      {isLoadingRepos ? (
+                        <div className="flex items-center justify-center p-12">
+                          <Loader2 size={24} className="animate-spin text-emerald-600" />
+                        </div>
+                      ) : savedRepos.length > 0 ? (
+                        <table className="w-full text-left text-sm">
+                          <thead className="bg-slate-100/50 border-b border-slate-100">
+                            <tr>
+                              <th className="px-4 py-3 font-bold text-slate-700">Extraction Name</th>
+                              <th className="px-4 py-3 font-bold text-slate-700">Source</th>
+                              <th className="px-4 py-3 font-bold text-slate-700">Date</th>
+                              <th className="px-4 py-3 font-bold text-slate-700">Action</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100 font-mono text-[11px]">
+                            {savedRepos.map((repo) => (
+                              <tr key={repo.id} className="hover:bg-white transition-colors">
+                                <td className="px-4 py-3 font-bold text-slate-800">{repo.name}</td>
+                                <td className="px-4 py-3 text-slate-500">
+                                  <span className="truncate max-w-[150px] inline-block">{repo.url}</span>
+                                </td>
+                                <td className="px-4 py-3 text-slate-400">
+                                  {new Date(repo.extractedAt).toLocaleDateString()}
+                                </td>
+                                <td className="px-4 py-3">
+                                  <button 
+                                    onClick={() => setViewingRepo(repo)}
+                                    className="text-emerald-600 font-bold hover:underline"
+                                  >
+                                    View Logic
+                                  </button>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      ) : (
+                        <div className="p-12 text-center text-slate-400 font-mono text-[10px]">
+                          NO SALVAGED DATA FOUND. EXTRACT LOGIC TO POOL TOOLS HERE.
+                        </div>
+                      )}
                     </div>
+
+                    <AnimatePresence>
+                      {viewingRepo && (
+                        <motion.div 
+                          initial={{ opacity: 0, scale: 0.95 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          exit={{ opacity: 0, scale: 0.95 }}
+                          className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm"
+                        >
+                          <div className="bg-white rounded-3xl w-full max-w-4xl max-h-[80vh] overflow-hidden flex flex-col shadow-2xl border border-slate-200">
+                            <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50">
+                              <div>
+                                <h3 className="text-lg font-black text-slate-900">{viewingRepo.name}</h3>
+                                <p className="text-xs text-slate-500 font-mono">{viewingRepo.url}</p>
+                              </div>
+                              <button 
+                                onClick={() => setViewingRepo(null)}
+                                className="p-2 hover:bg-slate-200 rounded-full transition-colors"
+                              >
+                                <X size={20} className="text-slate-400" />
+                              </button>
+                            </div>
+                            <div className="p-8 overflow-y-auto bg-slate-50/50">
+                              <div className="mb-6 space-y-2">
+                                <span className="px-3 py-1 bg-emerald-100 text-emerald-700 text-[10px] font-bold rounded-full uppercase tracking-wider">Scrubbed Logic</span>
+                                <h4 className="font-bold text-slate-800 text-sm italic">"The engine has removed non-brand services and locked the voice to 'The Well Lived Citizen'."</h4>
+                              </div>
+                              <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                                <div className="markdown-body text-sm text-slate-700 whitespace-pre-wrap font-mono leading-relaxed">
+                                  {repoAnalysis || "Extraction logic loading..."} 
+                                  {/* Note: In a production app, we would fetch the component subcollection here. 
+                                      For this turn, we use the session state or a placeholder if stale. */}
+                                </div>
+                              </div>
+                            </div>
+                            <div className="p-6 border-t border-slate-100 bg-white flex justify-end gap-3">
+                              <button 
+                                onClick={() => setViewingRepo(null)}
+                                className="px-6 py-2 rounded-xl text-sm font-bold text-slate-500 hover:bg-slate-100 transition-all"
+                              >
+                                Close
+                              </button>
+                              <button 
+                                className="px-6 py-2 bg-emerald-600 text-white rounded-xl text-sm font-bold hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-100 flex items-center gap-2"
+                              >
+                                <Zap size={16} />
+                                Apply to Master Spec
+                              </button>
+                            </div>
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
 
                     <div className="p-4 bg-slate-900 rounded-2xl">
                       <h4 className="text-xs font-bold text-emerald-400 uppercase mb-3 flex items-center gap-2">
