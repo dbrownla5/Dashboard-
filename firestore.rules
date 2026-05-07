@@ -1,76 +1,41 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // 1. Default Deny
+    // Default Deny
     match /{document=**} {
       allow read, write: if false;
     }
 
-    // 2. Global Helpers
     function isSignedIn() {
       return request.auth != null;
-    }
-
-    function isVerified() {
-      return isSignedIn() && request.auth.token.email_verified == true;
-    }
-
-    // Admin check based on Dayna's email
-    function isAdmin() {
-      return isVerified() && request.auth.token.email == 'daynabrown310@gmail.com';
     }
 
     function isValidId(id) {
       return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
     }
 
-    // 3. Validation Helpers
-    function isValidRepository(data) {
-      return data.keys().hasAll(['url', 'name', 'extractedAt', 'status']) &&
-             data.keys().size() >= 4 &&
-             data.url is string && data.url.size() <= 1024 &&
-             data.name is string && data.name.size() <= 256 &&
-             data.extractedAt is string &&
-             data.status is string;
+    // Projects
+    match /projects/{projectId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && isValidId(projectId);
+      allow update, delete: if isSignedIn();
     }
 
-    function isValidComponent(data) {
-      return data.keys().hasAll(['repoId', 'name', 'code', 'integrated']) &&
-             data.repoId is string &&
-             data.name is string && data.name.size() <= 256 &&
-             data.code is string && data.code.size() <= 1048576 && // 1MB limit check
-             data.integrated is bool;
+    // Inventory
+    match /inventory/{itemId} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if isSignedIn() && isValidId(itemId);
     }
 
-    function isValidSpec(data) {
-      return data.keys().hasAll(['version', 'content', 'createdAt']) &&
-             data.version is string &&
-             data.content is string &&
-             data.createdAt is string;
+    // Content
+    match /content/{contentId} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if isSignedIn() && isValidId(contentId);
     }
-
-    // 4. Collection Rules
-    match /repositories/{repoId} {
-      allow read: if isAdmin();
-      allow create: if isAdmin() && isValidId(repoId) && isValidRepository(request.resource.data);
-      allow update: if isAdmin() && isValidRepository(request.resource.data) && (
-        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'name', 'url'])
-      );
-      allow delete: if isAdmin();
-
-      match /components/{componentId} {
-        allow read: if isAdmin();
-        allow create: if isAdmin() && isValidId(componentId) && isValidComponent(request.resource.data);
-        allow update: if isAdmin() && isValidComponent(request.resource.data);
-        allow delete: if isAdmin();
-      }
-    }
-
-    match /specs/{specId} {
-      allow read: if isAdmin();
-      allow create: if isAdmin() && isValidId(specId) && isValidSpec(request.resource.data);
-      allow update: if isAdmin() && isValidSpec(request.resource.data);
-      allow delete: if isAdmin();
+    
+    // System
+    match /system/{docId} {
+      allow read: if isSignedIn();
     }
   }
 }
