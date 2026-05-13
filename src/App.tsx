@@ -284,7 +284,44 @@ export default function App() {
 
   const ai = useMemo(() => {
     const key = process.env.API_KEY || process.env.GEMINI_API_KEY;
-    return new GoogleGenAI({ apiKey: key });
+    const client = new GoogleGenAI({ apiKey: key });
+    
+    // Override generateContent with retry logic
+    const originalGenerateContent = client.models.generateContent.bind(client.models);
+    client.models.generateContent = async (args: any, config?: any) => {
+      const maxRetries = 3;
+      for (let i = 0; i < maxRetries; i++) {
+        try {
+          return await originalGenerateContent(args, config);
+        } catch (error: any) {
+          if (i === maxRetries - 1) throw error;
+          
+          let isRetryable = false;
+          const msg = error?.message || "";
+          
+          if (msg.includes("503") || error?.status === "UNAVAILABLE" || error?.status === 503 || error?.code === 503) {
+            isRetryable = true;
+          }
+          if (msg.includes("429") || msg.includes("RESOURCE_EXHAUSTED")) {
+            isRetryable = true;
+          }
+          if (msg.includes("fetch failed") || msg.includes("network error")) {
+            isRetryable = true;
+          }
+          
+          if (isRetryable) {
+            const waitTime = Math.pow(2, i) * 1500 + Math.random() * 1000;
+            console.log(`API Error: ${msg || error?.status}. Retrying in ${Math.round(waitTime)}ms... (Attempt ${i + 1}/${maxRetries})`);
+            await new Promise(resolve => setTimeout(resolve, waitTime));
+            continue;
+          }
+          throw error;
+        }
+      }
+      return originalGenerateContent(args, config); // fallback
+    };
+    
+    return client;
   }, [hasApiKey]);
 
   const runBrainstorm = async (mode: 'promo' | 'reading') => {
@@ -308,8 +345,12 @@ export default function App() {
         contents: prompt
       });
       setBrainstormResult(response.text || "Brainstorming failed.");
-    } catch (e) {
-      setBrainstormResult("Error during brainstorm.");
+    } catch (error: any) {
+      if (error.message?.includes("503") || error.status === "UNAVAILABLE") {
+        setBrainstormResult("⚠️ The AI service is currently experiencing extremely high demand. We've tried multiple times, but it's still busy. Please try again in a few minutes.");
+      } else {
+        setBrainstormResult("Error during brainstorm.");
+      }
     } finally {
       setIsAnalyzing(false);
     }
@@ -335,8 +376,12 @@ export default function App() {
         config: { tools: [{ googleSearch: {} }] }
       });
       setReconcileResult(response.text || "Reconciliation failed.");
-    } catch (e) {
-      setReconcileResult("Error during reconciliation.");
+    } catch (error: any) {
+      if (error.message?.includes("503") || error.status === "UNAVAILABLE") {
+        setReconcileResult("⚠️ The AI service is currently experiencing extremely high demand. We've tried multiple times, but it's still busy. Please try again in a few minutes.");
+      } else {
+        setReconcileResult("Error during reconciliation: " + (error.message || "Unknown error"));
+      }
     } finally {
       setIsAnalyzing(false);
     }
@@ -365,6 +410,8 @@ The shared API key has reached its limit. To continue using real-time market dat
 * **Geographic Proximity:** 35% of adult children live out-of-state from aging parents.
 * **Top Reasons for Hiring:** Downsizing (35%), Mental Clarity (28%), Transitions (22%).
         `);
+      } else if (error.message?.includes("503") || error.status === "UNAVAILABLE") {
+        setMarketReport("⚠️ The AI service is currently experiencing extremely high demand. We've tried multiple times, but it's still busy. Please try again in a few minutes.");
       } else {
         setMarketReport("Error generating report. Please check your connection or API key.");
       }
@@ -386,6 +433,8 @@ The shared API key has reached its limit. To continue using real-time market dat
       console.error("SEO error:", error);
       if (error.message?.includes("429") || error.message?.includes("RESOURCE_EXHAUSTED")) {
         setSeoAnalysis("⚠️ API Quota Exceeded. Please select your Paid API Key in the sidebar to run this analysis.");
+      } else if (error.message?.includes("503") || error.status === "UNAVAILABLE") {
+        setSeoAnalysis("⚠️ The AI service is currently experiencing extremely high demand. We've tried multiple times, but it's still busy. Please try again in a few minutes.");
       } else {
         setSeoAnalysis("Error generating SEO strategy.");
       }
@@ -419,6 +468,8 @@ The shared API key has reached its limit. To continue using real-time market dat
       console.error("Handoff error:", error);
       if (error.message?.includes("429") || error.message?.includes("RESOURCE_EXHAUSTED")) {
         setHandoffAnalysis("⚠️ API Quota Exceeded. Please select your Paid API Key in the sidebar to run this analysis.");
+      } else if (error.message?.includes("503") || error.status === "UNAVAILABLE") {
+        setHandoffAnalysis("⚠️ The AI service is currently experiencing extremely high demand. We've tried multiple times, but it's still busy. Please try again in a few minutes.");
       } else {
         setHandoffAnalysis("Error generating handoff document.");
       }
@@ -461,6 +512,8 @@ The shared API key has reached its limit. To continue using real-time market dat
       console.error("Analysis error:", error);
       if (error.message?.includes("429") || error.message?.includes("RESOURCE_EXHAUSTED")) {
         setValidatorAnalysis("⚠️ API Quota Exceeded. Please select your Paid API Key in the sidebar to run this analysis.");
+      } else if (error.message?.includes("503") || error.status === "UNAVAILABLE") {
+        setValidatorAnalysis("⚠️ The AI service is currently experiencing extremely high demand. We've tried multiple times, but it's still busy. Please try again in a few minutes.");
       } else {
         setValidatorAnalysis("Error running analysis. Please try again.");
       }
@@ -491,7 +544,11 @@ The shared API key has reached its limit. To continue using real-time market dat
       setRepoAnalysis(response.text || "Analysis failed.");
     } catch (error: any) {
       console.error("Repo Analysis error:", error);
-      setRepoAnalysis("Error running repo analysis. Please ensure you provided the repo details.");
+      if (error.message?.includes("503") || error.status === "UNAVAILABLE") {
+        setRepoAnalysis("⚠️ The AI service is currently experiencing extremely high demand. We've tried multiple times, but it's still busy. Please try again in a few minutes.");
+      } else {
+        setRepoAnalysis("Error running repo analysis. Please ensure you provided the repo details.");
+      }
     } finally {
       setIsAnalyzing(false);
     }
@@ -1049,7 +1106,16 @@ The shared API key has reached its limit. To continue using real-time market dat
                         });
                         setAuditAnalysis(response.text || "Audit failed.");
                       } catch (e) {
-                        setAuditAnalysis("Error running audit.");
+                        let eMessage = "Unknown error";
+                        if (e instanceof Error) eMessage = e.message;
+                        else if (typeof e === 'object' && e && 'message' in e) eMessage = String(e.message);
+                        else if (typeof e === 'object' && e && 'status' in e && e.status === "UNAVAILABLE") eMessage = "503";
+                        
+                        if (eMessage.includes("503") || (e as any)?.status === "UNAVAILABLE") {
+                          setAuditAnalysis("⚠️ The AI service is currently experiencing extremely high demand. We've tried multiple times, but it's still busy. Please try again in a few minutes.");
+                        } else {
+                          setAuditAnalysis("Error running audit.");
+                        }
                       } finally {
                         setIsAnalyzing(false);
                       }
@@ -1180,7 +1246,16 @@ The shared API key has reached its limit. To continue using real-time market dat
                         });
                         setScopingAnalysis(response.text || "Scoping failed.");
                       } catch (e) {
-                        setScopingAnalysis("Error running scope analysis.");
+                        let eMessage = "Unknown error";
+                        if (e instanceof Error) eMessage = e.message;
+                        else if (typeof e === 'object' && e && 'message' in e) eMessage = String(e.message);
+                        else if (typeof e === 'object' && e && 'status' in e && e.status === "UNAVAILABLE") eMessage = "503";
+
+                        if (eMessage.includes("503") || (e as any)?.status === "UNAVAILABLE") {
+                          setScopingAnalysis("⚠️ The AI service is currently experiencing extremely high demand. We've tried multiple times, but it's still busy. Please try again in a few minutes.");
+                        } else {
+                          setScopingAnalysis("Error running scope analysis.");
+                        }
                       } finally {
                         setIsAnalyzing(false);
                       }
@@ -1420,7 +1495,16 @@ The shared API key has reached its limit. To continue using real-time market dat
                               setPricingPulseAnalysis(response.text || "Pricing pulse failed.");
                               // Results shown below
                             } catch (e) {
-                              setPricingPulseAnalysis("Error running pricing pulse.");
+                              let eMessage = "Unknown error";
+                              if (e instanceof Error) eMessage = e.message;
+                              else if (typeof e === 'object' && e && 'message' in e) eMessage = String(e.message);
+                              else if (typeof e === 'object' && e && 'status' in e && e.status === "UNAVAILABLE") eMessage = "503";
+
+                              if (eMessage.includes("503") || (e as any)?.status === "UNAVAILABLE") {
+                                setPricingPulseAnalysis("⚠️ The AI service is currently experiencing extremely high demand. We've tried multiple times, but it's still busy. Please try again in a few minutes.");
+                              } else {
+                                setPricingPulseAnalysis("Error running pricing pulse.");
+                              }
                             } finally {
                               setIsAnalyzing(false);
                             }
